@@ -1,0 +1,68 @@
+# EtibolPOS sürümü derler ve bu depoda yayınlar.
+# Kod gizli depoda (MuhammeDTayyiP0/EtibolPOS) durur; yalnızca okuma izni olan anahtarla (CODE_DEPLOY_KEY) alınır.
+# Çalıştırma: Actions > "Sürüm yayınla" > Run workflow > sürüm numarası (gizli depoda vX.Y.Z etiketi olmalı).
+# Bu dosyanın asıl kopyası gizli depoda yayin/surumler-deposu altındadır.
+name: Sürüm yayınla
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Sürüm numarası (örn. 1.2.0)"
+        required: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: surum
+
+jobs:
+  yayinla:
+    runs-on: windows-2022
+    timeout-minutes: 45
+    steps:
+      - name: Sürüm numarasını denetle
+        shell: pwsh
+        env:
+          VERSION: ${{ inputs.version }}
+        run: if ($env:VERSION -notmatch '^\d+\.\d+\.\d+$') { throw "Geçersiz sürüm: $env:VERSION" }
+
+      - name: Kodu al
+        uses: actions/checkout@v4
+        with:
+          repository: MuhammeDTayyiP0/EtibolPOS
+          ref: v${{ inputs.version }}
+          ssh-key: ${{ secrets.CODE_DEPLOY_KEY }}
+          persist-credentials: false
+          path: kod
+
+      - name: Go 1.20 (Windows 7 uyumu)
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.20.14"
+          cache-dependency-path: kod/server/go.sum
+
+      - name: Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: kod/web/package-lock.json
+
+      - name: Derle, paketle, imzala
+        shell: pwsh
+        env:
+          VERSION: ${{ inputs.version }}
+          UPDATE_SIGNING_KEY: ${{ secrets.UPDATE_SIGNING_KEY }}
+        run: ./kod/yayin/derle-ci.ps1 -Version $env:VERSION -Repo $env:GITHUB_REPOSITORY
+
+      - name: Yayınla
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          $files = (Get-ChildItem kod/out -File).FullName
+          gh release create "v$env:VERSION" $files --repo $env:GITHUB_REPOSITORY --title "EtibolPOS $env:VERSION" --notes-file kod/yayin/surum-notu.md
+          if ($LASTEXITCODE -ne 0) { throw "Yayınlanamadı" }
