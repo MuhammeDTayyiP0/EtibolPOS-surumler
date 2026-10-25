@@ -26,7 +26,8 @@ jobs:
         shell: pwsh
         env:
           VERSION: ${{ inputs.version }}
-        run: if ($env:VERSION -notmatch '^\d+\.\d+\.\d+$') { throw "Geçersiz sürüm: $env:VERSION" }
+        run: |
+          if ($env:VERSION -notmatch '^\d+\.\d+\.\d+$') { throw "Geçersiz sürüm: $env:VERSION" }
 
       - name: Kodu al
         uses: actions/checkout@v4
