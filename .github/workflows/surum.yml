@@ -65,5 +65,6 @@ jobs:
           VERSION: ${{ inputs.version }}
         run: |
           $files = (Get-ChildItem kod/out -File).FullName
-          gh release create "v$env:VERSION" $files --repo $env:GITHUB_REPOSITORY --title "EtibolPOS $env:VERSION" --notes-file kod/yayin/surum-notu.md
+          $notes = if (Test-Path kod/server/surum-notu.md) { 'kod/server/surum-notu.md' } else { 'kod/yayin/surum-notu.md' }
+          gh release create "v$env:VERSION" $files --repo $env:GITHUB_REPOSITORY --title "EtibolPOS $env:VERSION" --notes-file $notes
           if ($LASTEXITCODE -ne 0) { throw "Yayınlanamadı" }
